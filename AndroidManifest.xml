@@ -56,6 +56,12 @@
             android:screenOrientation="portrait"
             ></activity>
         
+        <activity
+            android:name="com.ldp.android.baidumaptestnew.activity.ComplexMapActivity" 
+            android:configChanges="orientation|keyboardHidden"
+            android:screenOrientation="portrait"
+            ></activity>
+        
     </application>
 
 </manifest>

@@ -64,6 +64,12 @@ public class MainActivity extends ActionBarActivity {
 		funcItem.setActivityClass(BaseMapActivity.class);
 		
 		mFunctionItemList.add(funcItem);
+		
+		funcItem = new FunctionItem();
+		funcItem.setDesc("∏¥∫œ≤‚ ‘");
+		funcItem.setActivityClass(ComplexMapActivity.class);
+		
+		mFunctionItemList.add(funcItem);
 	}
 
 }

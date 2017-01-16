@@ -4,5 +4,11 @@
     <string name="app_name">BaiduMapTestNew</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
-
+    
+    <!-- menu resource -->
+    <string name="normal_map">Normal Map</string>
+    <string name="satellite_map">Satellite Map</string>
+	<string name="show_city_street">Show City Street</string>
+	<string name="not_show_city_street">Don\'t show City Street</string>
+    
 </resources>
