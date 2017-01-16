@@ -1,7 +1,5 @@
 package com.ldp.android.baidumaptestnew.activity;
 
-import org.apache.http.util.LangUtils;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
@@ -36,9 +34,13 @@ public class ComplexMapActivity extends Activity{
 	private MyLocationListener mMyLocationListener;
 	
 	private boolean firstLocate = true;
+	
+	private LatLng currentLocation;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
+
+		Log.i(TAG, "onCreate");
 		super.onCreate(savedInstanceState);
 		//在使用SDK各组件之前初始化context信息，传入ApplicationContext  
         //注意该方法要再setContentView方法之前实现  
@@ -53,7 +55,6 @@ public class ComplexMapActivity extends Activity{
 	}
 	
 	private void initialMyLocation() {
-
 		
 		mLocationClient = new LocationClient(this);
 		mMyLocationListener = new MyLocationListener();
@@ -64,7 +65,6 @@ public class ComplexMapActivity extends Activity{
 		option.setScanSpan(5*1000);
 		
 		mLocationClient.setLocOption(option);
-		
 	}
 
 	private void initialMap() {
@@ -79,6 +79,8 @@ public class ComplexMapActivity extends Activity{
 	@Override
 	protected void onDestroy() {
 
+		Log.i(TAG, "onDestroy");
+		
 		mMVCity.onDestroy();
 		super.onDestroy();
 	}
@@ -90,9 +92,6 @@ public class ComplexMapActivity extends Activity{
 		
 		super.onResume();
 		mMVCity.onResume();
-		mBaiduMap.setMyLocationEnabled(true);
-		mLocationClient.registerLocationListener(mMyLocationListener);
-		mLocationClient.start();
 	}
 	
 	@Override
@@ -100,9 +99,6 @@ public class ComplexMapActivity extends Activity{
 
 		Log.i(TAG, "onPause");
 		
-		mLocationClient.stop();
-		mLocationClient.unRegisterLocationListener(mMyLocationListener);
-		mBaiduMap.setMyLocationEnabled(false);
 		mMVCity.onPause();
 		super.onPause();
 	}
@@ -112,12 +108,19 @@ public class ComplexMapActivity extends Activity{
 		
 		Log.i(TAG, "onStart");
 		super.onStart();
+		mBaiduMap.setMyLocationEnabled(true);
+		mLocationClient.registerLocationListener(mMyLocationListener);
+		mLocationClient.start();
 	}
 	
 	@Override
 	protected void onStop() {
 		
 		Log.i(TAG, "onStop");
+
+		mLocationClient.stop();
+		mLocationClient.unRegisterLocationListener(mMyLocationListener);
+		mBaiduMap.setMyLocationEnabled(false);
 		super.onStop();
 	}
 	
@@ -154,6 +157,13 @@ public class ComplexMapActivity extends Activity{
 			}
 			return true;
 
+		case R.id.menu_item_show_my_location:
+			
+			if(currentLocation != null){
+				locationToPosition(currentLocation);
+			}
+			return true;
+			
 		default:
 			return super.onOptionsItemSelected(item);
 		}
@@ -176,11 +186,13 @@ public class ComplexMapActivity extends Activity{
 				LatLng latLng = new LatLng(bdLocation.getLatitude(),bdLocation.getLongitude());
 				locationToPosition(latLng);
 			}
+
+			currentLocation = new LatLng(bdLocation.getLatitude(),bdLocation.getLongitude());
 			
 			MyLocationData myLocationData = 
 					new MyLocationData.Builder()
 						.accuracy(bdLocation.getRadius())
-						.latitude(bdLocation.getAltitude())
+						.latitude(bdLocation.getLatitude())
 						.longitude(bdLocation.getLongitude())
 						.build();
 			
