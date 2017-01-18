@@ -12,4 +12,6 @@
 	<string name="not_show_city_street">Don\'t show City Street</string>
 	<string name="show_my_location">Show my location</string>	
     
+	<!-- ComplexMapActivity -->
+	<string name="cant_get_sensor">Can\'t get Sensor! Unable to show your direction</string>
 </resources>

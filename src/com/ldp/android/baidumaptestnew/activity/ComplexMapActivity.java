@@ -1,10 +1,16 @@
 package com.ldp.android.baidumaptestnew.activity;
 
 import android.app.Activity;
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
@@ -12,9 +18,13 @@ import com.baidu.location.LocationClient;
 import com.baidu.location.LocationClientOption;
 import com.baidu.mapapi.SDKInitializer;
 import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.BitmapDescriptor;
+import com.baidu.mapapi.map.BitmapDescriptorFactory;
 import com.baidu.mapapi.map.MapStatusUpdate;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.MyLocationConfiguration;
+import com.baidu.mapapi.map.MyLocationConfiguration.LocationMode;
 import com.baidu.mapapi.map.MyLocationData;
 import com.baidu.mapapi.model.LatLng;
 import com.ldp.android.baidumaptestnew.R;
@@ -22,6 +32,9 @@ import com.ldp.android.baidumaptestnew.R;
 public class ComplexMapActivity extends Activity{
 	
 	private static final String TAG = ComplexMapActivity.class.getSimpleName();
+	
+	//因为使用了方向传感器，因此我的位置需要频繁的更新，地图更新的频率，毫秒
+	private static final int FREQ_MAP_UPDATE = 70;
 	
 	private MapView mMVCity;
 	
@@ -37,6 +50,16 @@ public class ComplexMapActivity extends Activity{
 	
 	private LatLng currentLocation;
 
+	private SensorManager mSensorManager;
+	
+	private Sensor mAcceSensor,mMagnSensor;
+	
+	private OrientationSensorListener mOriSensorListener;
+	
+	private double zDegree;
+	
+	private BDLocation mMyBDLocation;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 
@@ -50,10 +73,35 @@ public class ComplexMapActivity extends Activity{
         mMVCity = (MapView) findViewById(R.id.mv_city);
         
         initialMap();
-        
+        initialSensor();
         initialMyLocation();
 	}
 	
+	private void initialSensor() {
+		
+		mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+		
+		if(mSensorManager != null){
+
+	        Sensor acceSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	        if(acceSensor != null){
+	        	mAcceSensor = acceSensor;
+	        }
+	        Sensor magnSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+	        if(magnSensor != null){
+	        	mMagnSensor = magnSensor;
+	        }
+	        
+	        if(mAcceSensor == null || mMagnSensor == null){
+	        	
+	        	Toast.makeText(this, R.string.cant_get_sensor, Toast.LENGTH_LONG).show();
+	        }
+		}else{
+			
+			Toast.makeText(this, R.string.cant_get_sensor, Toast.LENGTH_LONG).show();
+		}
+	}
+
 	private void initialMyLocation() {
 		
 		mLocationClient = new LocationClient(this);
@@ -74,6 +122,12 @@ public class ComplexMapActivity extends Activity{
 		
 		MapStatusUpdate mapUpdate = MapStatusUpdateFactory.zoomTo(15.0f);
 		mBaiduMap.setMapStatus(mapUpdate);
+		
+		BitmapDescriptor customMarker = BitmapDescriptorFactory
+				.fromResource(R.drawable.navi_map_gps_locked);
+		MyLocationConfiguration configuration = 
+				new MyLocationConfiguration(LocationMode.NORMAL, true, customMarker);
+		mBaiduMap.setMyLocationConfigeration(configuration);
 	}
 
 	@Override
@@ -111,6 +165,16 @@ public class ComplexMapActivity extends Activity{
 		mBaiduMap.setMyLocationEnabled(true);
 		mLocationClient.registerLocationListener(mMyLocationListener);
 		mLocationClient.start();
+
+		if(mSensorManager != null && mAcceSensor != null && mMagnSensor != null){
+			
+			mOriSensorListener = new OrientationSensorListener();
+			
+	        mSensorManager.registerListener(mOriSensorListener, mAcceSensor
+	        		, SensorManager.SENSOR_DELAY_UI);
+	        mSensorManager.registerListener(mOriSensorListener, mMagnSensor
+	        		, SensorManager.SENSOR_DELAY_UI);
+		}
 	}
 	
 	@Override
@@ -118,6 +182,10 @@ public class ComplexMapActivity extends Activity{
 		
 		Log.i(TAG, "onStop");
 
+		if(mSensorManager != null && mAcceSensor != null && mMagnSensor != null){
+			mSensorManager.unregisterListener(mOriSensorListener);
+		}
+		
 		mLocationClient.stop();
 		mLocationClient.unRegisterLocationListener(mMyLocationListener);
 		mBaiduMap.setMyLocationEnabled(false);
@@ -176,6 +244,25 @@ public class ComplexMapActivity extends Activity{
 		mBaiduMap.animateMapStatus(update);
 	}
 	
+	/**
+	 * 更新我的位置
+	 * 因为使用了方向传感器，需要频繁更新我的位置
+	 */
+	private void updateMyLocation(){
+		
+		if(mMyBDLocation != null){
+			MyLocationData myLocationData = 
+					new MyLocationData.Builder()
+						.accuracy(mMyBDLocation.getRadius())
+						.direction((float)zDegree)
+						.latitude(mMyBDLocation.getLatitude())
+						.longitude(mMyBDLocation.getLongitude())
+						.build();
+			
+			mBaiduMap.setMyLocationData(myLocationData);
+		}
+	}
+	
 	private class MyLocationListener implements BDLocationListener{
 
 		@Override
@@ -188,20 +275,63 @@ public class ComplexMapActivity extends Activity{
 			}
 
 			currentLocation = new LatLng(bdLocation.getLatitude(),bdLocation.getLongitude());
+			mMyBDLocation = bdLocation;
 			
-			MyLocationData myLocationData = 
-					new MyLocationData.Builder()
-						.accuracy(bdLocation.getRadius())
-						.latitude(bdLocation.getLatitude())
-						.longitude(bdLocation.getLongitude())
-						.build();
-			
-			mBaiduMap.setMyLocationData(myLocationData);
+			updateMyLocation();
 		}
 
 		@Override
 		public void onReceivePoi(BDLocation arg0) {
-			// TODO Auto-generated method stub
+			
+		}
+		
+	}
+	
+	private class OrientationSensorListener implements SensorEventListener{
+
+		private float[] acceValues,magnValues;
+		
+		private long lastRecordTime = System.currentTimeMillis();
+		
+		private long lastMagnTime = System.currentTimeMillis();
+		
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+			
+			if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+				acceValues = event.values.clone();
+			}else
+				if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+					magnValues = event.values.clone();		
+					
+					long currentMagnTime = System.currentTimeMillis();
+					long intervalMagnTime = currentMagnTime-lastMagnTime;
+					Log.i(TAG, "magn sensor freq:(ms)"+intervalMagnTime);
+					
+					lastMagnTime = currentMagnTime;
+				}
+					
+			if(acceValues != null && magnValues != null){
+	    		
+	    		float[] rValues = new float[9];
+	    		SensorManager.getRotationMatrix(rValues, null, acceValues, magnValues);
+	    		
+	    		float[] orieValues = new float[3];
+	    		SensorManager.getOrientation(rValues, orieValues);
+	    			    		
+	    		zDegree = Math.toDegrees(orieValues[0]);
+	    	}
+			
+			long currentTime = System.currentTimeMillis();
+			long intervalTime = currentTime - lastRecordTime;
+			if(intervalTime > FREQ_MAP_UPDATE){
+				lastRecordTime = currentTime;
+				updateMyLocation();
+			}
+	    }
+
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
 			
 		}
 		
